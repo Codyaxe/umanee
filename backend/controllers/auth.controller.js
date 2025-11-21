@@ -1,10 +1,7 @@
 import { client } from "../lib/redis.js";
 import { User, tempUser } from "../models/User.js";
 import jwt from "jsonwebtoken";
-import {
-  sendVerificationEmail,
-  verifyCode,
-} from "../services/verifyEmail.js";
+import { sendVerificationEmail, verifyCode } from "../services/verifyEmail.js";
 import dotenv from "dotenv";
 import fetch from "node-fetch";
 
@@ -44,12 +41,14 @@ const genSetRefreshToken = (res, userId) => {
 
 const storeRefreshToken = async (userId, refreshToken) => {
   try {
-    await client.set(
-      `refreshToken:${userId}`,
-      refreshToken,
-      "EX",
-      60 * 60 * 24 * 7
-    ); // 7 days
+    if (client) {
+      await client.set(
+        `refreshToken:${userId}`,
+        refreshToken,
+        "EX",
+        60 * 60 * 24 * 7
+      ); // 7 days
+    }
   } catch (error) {
     console.error("Error storing refresh token:", error);
   }
@@ -89,7 +88,9 @@ export const login = async (req, res) => {
     await storeRefreshToken(user._id, refreshToken);
 
     // Clean up temp and cooldown tokens
-    await client.del(`verify_cooldown:${email}`);
+    if (client) {
+      await client.del(`verify_cooldown:${email}`);
+    }
 
     // console.log("User authenticated successfully:", user);
     return res.status(200).json({
@@ -119,10 +120,12 @@ export const signup = async (req, res) => {
         .status(400)
         .json({ message: "Password must be at least 6 characters" });
     }
-    let location=facebookLink;
-    if (role==="seller") {
+    let location = facebookLink;
+    if (role === "seller") {
       if (!colonyName) {
-        return res.status(400).json({ message: "Colony name is required for sellers" });
+        return res
+          .status(400)
+          .json({ message: "Colony name is required for sellers" });
       }
       if (!facebookLink || facebookLink.trim() === "") {
         return res.status(400).json({
@@ -132,7 +135,8 @@ export const signup = async (req, res) => {
       }
       if (!facebookLink.includes("www.facebook.com/")) {
         return res.status(400).json({
-          message: "Please enter a valid Facebook link (www.facebook.com/your.username)",
+          message:
+            "Please enter a valid Facebook link (www.facebook.com/your.username)",
         });
       }
 
@@ -157,12 +161,16 @@ export const signup = async (req, res) => {
     // Check if there's a pending verification
     const pendingVerification = await tempUser.findOne({ email });
     if (pendingVerification) {
-      return res.status(409).json({ message: "Pending verification already exists for this email" });
+      return res
+        .status(409)
+        .json({
+          message: "Pending verification already exists for this email",
+        });
     }
 
     let user;
 
-    if (role==="seller") {
+    if (role === "seller") {
       user = {
         colonyName,
         email,
@@ -174,15 +182,14 @@ export const signup = async (req, res) => {
           return endQ === -1
             ? location.slice(start)
             : location.slice(start, endQ);
-        }
-        )(),
+        })(),
       };
     } else {
       user = {
         email,
         password,
         role,
-      }
+      };
     }
     // Create temp user data
     try {
@@ -192,7 +199,9 @@ export const signup = async (req, res) => {
       throw error;
     }
 
-    await client.set(`verifying:${user.email}`, "true", "EX", 60 * 20); // 20 minutes
+    if (client) {
+      await client.set(`verifying:${user.email}`, "true", "EX", 60 * 20); // 20 minutes
+    }
     // console.log("Finished creating temp user, proceed to send verification email");
     res.status(201).json({ message: "User created, please verify your email" });
   } catch (error) {
@@ -211,7 +220,9 @@ export const logout = async (req, res) => {
       );
 
       // Remove refresh token from Redis
-      await client.del(`refreshToken:${decoded.userId}`);
+      if (client) {
+        await client.del(`refreshToken:${decoded.userId}`);
+      }
     }
 
     // Clear cookies
@@ -237,7 +248,9 @@ export const verifyReceive = async (req, res) => {
     if (!isValid?.success) {
       return res
         .status(410)
-        .json({ message: isValid.message || "Invalid or expired Verification URL" });
+        .json({
+          message: isValid.message || "Invalid or expired Verification URL",
+        });
     }
 
     // Check if user already exists
@@ -249,7 +262,9 @@ export const verifyReceive = async (req, res) => {
     // Check for Pending Verification
     const temp = await tempUser.findOne({ email });
     if (!temp) {
-      return res.status(404).json({ message: "No pending verification found for this email." });
+      return res
+        .status(404)
+        .json({ message: "No pending verification found for this email." });
     }
 
     // Create Verified User
@@ -263,8 +278,10 @@ export const verifyReceive = async (req, res) => {
 
     //Delete Temp User and verifying flag
     await tempUser.deleteOne({ email });
-    await client.del(`verifying:${email}`);
-    await client.del(`verify_cooldown:${email}`);
+    if (client) {
+      await client.del(`verifying:${email}`);
+      await client.del(`verify_cooldown:${email}`);
+    }
 
     // Generate tokens~
     const accessToken = genSetAccessToken(res, user._id);
@@ -278,7 +295,11 @@ export const verifyReceive = async (req, res) => {
     // console.log("Finish verifying successful");
     return res.status(200).json({ message: "Email verification successful" });
   } catch (error) {
-    return res.status(500).json({ message: error.response?.data.message || "Internal server error" });
+    return res
+      .status(500)
+      .json({
+        message: error.response?.data.message || "Internal server error",
+      });
   }
 };
 
@@ -291,7 +312,11 @@ export const verifySend = async (req, res) => {
     const response = await sendVerificationEmail(userEmail);
     if (!response.success) {
       console.error("Error sending verification email:", response.error);
-      return res.status(400).json({ message: response.message || "Failed to send verification email" });
+      return res
+        .status(400)
+        .json({
+          message: response.message || "Failed to send verification email",
+        });
     }
     return res.status(200).json({ message: "Verification email sent" });
   } catch (error) {
@@ -310,8 +335,10 @@ export const cancelVerification = async (req, res) => {
     }
 
     // Delete redis keys related to verification
-    await client.del(`verifying:${email}`);
-    await client.del(`verify_cooldown:${email}`);
+    if (client) {
+      await client.del(`verifying:${email}`);
+      await client.del(`verify_cooldown:${email}`);
+    }
 
     // Remove temp user document
     await tempUser.deleteOne({ email });
@@ -333,11 +360,13 @@ export const refreshToken = async (req, res) => {
     const userId = decoded.userId;
 
     // Check if the refresh token exists in Redis
-    const storedToken = await client.get(`refreshToken:${userId}`);
-    if (storedToken !== refreshToken) {
-      res.clearCookie("accessToken");
-      res.clearCookie("refreshToken");
-      return res.status(403).json({ message: "Invalid refresh token" });
+    if (client) {
+      const storedToken = await client.get(`refreshToken:${userId}`);
+      if (storedToken !== refreshToken) {
+        res.clearCookie("accessToken");
+        res.clearCookie("refreshToken");
+        return res.status(403).json({ message: "Invalid refresh token" });
+      }
     }
 
     // Generate new access token only

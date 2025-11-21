@@ -11,6 +11,7 @@ const SellerPage = lazy(() => import("./pages/SellerPage"));
 const AuthenticationPage = lazy(() => import("./pages/AuthenticationPage"));
 const ProductDetails = lazy(() => import("./pages/ProductDetails"));
 const AboutPage = lazy(() => import("./pages/AboutUs"));
+const TestPage = lazy(() => import("./pages/TestPage"));
 import BeeLoadingScreen from "./components/BeeLoadingScreen";
 import NavBar from "./components/NavBar";
 import Footer from "./components/Footer";
@@ -54,6 +55,7 @@ function App() {
             <Route path="/product/:id" element={<ProductDetails />} />
             <Route path="/catalog" element={<Catalog />} />
             <Route path="/about-us" element={<AboutPage />} />
+            <Route path="/test" element={<TestPage />} />
 
             {/* Protected routes - need login */}
             <Route

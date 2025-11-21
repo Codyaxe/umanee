@@ -382,6 +382,16 @@ const NavBar = ({ user }) => {
         >
           About Us
         </button>
+        <button
+          className={
+            path === "/test"
+              ? "text-yellow-700 font-semibold border-b-2 border-yellow-400"
+              : "text-gray-600 hover:text-yellow-700 btn-anim font-medium transition-colors duration-200 cursor-pointer"
+          }
+          onClick={() => navigate("/test")}
+        >
+          Test
+        </button>
       </div>
     </div>
   );
