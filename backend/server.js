@@ -4,7 +4,9 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 
 import authRoutes from "./routes/auth.route.js";
-import productRoutes from "./routes/product.route.js";
+import listingRoutes from "./routes/listing.route.js";
+import wishlistRoutes from "./routes/wishlist.route.js";
+import produceRoutes from "./routes/produce.route.js";
 import { connectDB } from "./lib/db.js";
 
 dotenv.config();
@@ -22,22 +24,21 @@ app.use(
   })
 );
 
-// JSON parsing middleware - MUST be before routes
+// Middleware
 app.use(express.json({ limit: "10mb" })); // Add limit for larger payloads
 app.use(express.urlencoded({ extended: true }));
-
-// Cookie parser - MUST be before routes
 app.use(cookieParser());
 
-// Debug middleware to log all requests
 app.use((req, res, next) => {
   // console.log(`🚀 ${req.method} ${req.url}`);
   next();
 });
 
-// Connect Routes - AFTER all middleware
+// Connect Routes
 app.use("/api/auth", authRoutes);
-app.use("/api/products", productRoutes);
+app.use("/api/produce", produceRoutes);
+app.use("/api/wishlist", wishlistRoutes);
+app.use("/api/listings", listingRoutes);
 
 app.listen(PORT, () => {
   console.log("Server is running on port ", PORT);

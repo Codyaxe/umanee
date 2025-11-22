@@ -21,11 +21,6 @@ const produceSchema = new mongoose.Schema({
         trim: true,
         maxlength: 50
     },
-    farmerId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'user',
-        required: [true, 'Farmer ID is required']
-    },
     unit: {
         type: String,
         required: [true, 'Unit of measurement is required'],

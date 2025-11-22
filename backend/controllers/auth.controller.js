@@ -6,7 +6,6 @@ import {
   verifyCode,
 } from "../services/verifyEmail.js";
 import dotenv from "dotenv";
-import fetch from "node-fetch";
 
 dotenv.config();
 
@@ -58,27 +57,38 @@ const storeRefreshToken = async (userId, refreshToken) => {
 export const login = async (req, res) => {
   try {
     // console.log("Login route activated: ", req.body);
-    const { email, password } = req.body;
+    const { contact, password } = req.body; // contact can be email or phone
 
     // Validate input
-    if (!email || !password) {
+    if (!contact || !password) {
       return res
         .status(400)
-        .json({ message: "Email and password are required" });
+        .json({ message: "Email/phone and password are required" });
     }
 
-    // Basic email format validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({ message: "Invalid email format" });
+    // Determine if contact is email or phone
+    const isEmail = contact.includes('@');
+    const query = isEmail ? { email: contact } : { phoneNumber: contact };
+
+    // Basic format validation
+    if (isEmail) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(contact)) {
+        return res.status(400).json({ message: "Invalid email format" });
+      }
+    } else {
+      const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
+      if (!phoneRegex.test(contact)) {
+        return res.status(400).json({ message: "Invalid phone number format" });
+      }
     }
 
     // Check credentials
-    const user = await User.findOne({ email });
+    const user = await User.findOne(query);
     const isValidPassword = await user?.comparePassword(password);
     if (!user || !isValidPassword) {
-      // console.log("Invalid login attempt for email:", email, isValidPassword);
-      return res.status(401).json({ message: "Invalid email or password" });
+      // console.log("Invalid login attempt for contact:", contact, isValidPassword);
+      return res.status(401).json({ message: "Invalid credentials" });
     }
 
     // Generate tokens
@@ -103,13 +113,19 @@ export const login = async (req, res) => {
 };
 
 export const signup = async (req, res) => {
-  const { colonyName, email, password, facebookLink, confirmPassword, role } =
+  const { name, email, phoneNumber, password, address, confirmPassword, role } =
     req.body;
   try {
     // console.log("ChecK: ", req.body)
     // Validate input
-    if (!email || !password) {
-      return res.status(400).json({ message: "Missing credentials detected" });
+    if (!name) {
+      return res.status(400).json({ message: "Name is required" });
+    }
+    if (!email && !phoneNumber) {
+      return res.status(400).json({ message: "Either email or phone number is required" });
+    }
+    if (!password) {
+      return res.status(400).json({ message: "Password is required" });
     }
     if (password !== confirmPassword) {
       return res.status(400).json({ message: "Passwords do not match" });
@@ -119,71 +135,40 @@ export const signup = async (req, res) => {
         .status(400)
         .json({ message: "Password must be at least 6 characters" });
     }
-    let location=facebookLink;
-    if (role==="seller") {
-      if (!colonyName) {
-        return res.status(400).json({ message: "Colony name is required for sellers" });
-      }
-      if (!facebookLink || facebookLink.trim() === "") {
+    
+    if (role === "farmer") {
+      if (!address || address.trim() === "") {
         return res.status(400).json({
-          message:
-            "Facebook link is required - buyers need a way to contact you!",
+          message: "Farm address is required for farmers",
         });
       }
-      if (!facebookLink.includes("www.facebook.com/")) {
+      if (address.length < 10) {
         return res.status(400).json({
-          message: "Please enter a valid Facebook link (www.facebook.com/your.username)",
+          message: "Please provide a complete farm address",
         });
       }
-
-      // get final redirected facebook link if it's a /share/ link
-      // console.log("Original Facebook link: ", location);
-      if (location.includes("/share/")) {
-        const resp = await fetch(location, { redirect: "manual" });
-        if (resp.status >= 300 && resp.status < 400) {
-          location = resp.headers.get("location");
-          // console.log("Redirected to: ", location);
-        }
-      }
-      // console.log("Final Facebook link after redirects: ", location);
     }
 
     // Check if user already exists
-    const existingUser = await User.findOne({ email });
+    const existingUser = email ? await User.findOne({ email }) : await User.findOne({ phoneNumber });
     if (existingUser) {
-      return res.status(409).json({ message: "Email already registered" });
+      return res.status(409).json({ message: "User already registered with this contact information" });
     }
 
     // Check if there's a pending verification
-    const pendingVerification = await tempUser.findOne({ email });
+    const pendingVerification = email ? await tempUser.findOne({ email }) : await tempUser.findOne({ phoneNumber });
     if (pendingVerification) {
-      return res.status(409).json({ message: "Pending verification already exists for this email" });
+      return res.status(409).json({ message: "Pending verification already exists for this contact" });
     }
 
-    let user;
-
-    if (role==="seller") {
-      user = {
-        colonyName,
-        email,
-        password,
-        role,
-        facebookLink: (() => {
-          const start = location.indexOf("www.facebook.com/") + 17;
-          const endQ = location.indexOf("?", start);
-          return endQ === -1
-            ? location.slice(start)
-            : location.slice(start, endQ);
-        }
-        )(),
-      };
-    } else {
-      user = {
-        email,
-        password,
-        role,
-      }
-    }
+    const user = {
+      name,
+      email: email || undefined,
+      phoneNumber: phoneNumber || undefined,
+      password,
+      role,
+      address: role === "farmer" ? address : undefined,
+    };
     // Create temp user data
     try {
       await tempUser.create(user);
@@ -254,11 +239,12 @@ export const verifyReceive = async (req, res) => {
 
     // Create Verified User
     const user = await User.create({
-      colonyName: temp.colonyName,
+      name: temp.name,
       email: temp.email,
+      phoneNumber: temp.phoneNumber,
       password: temp.password,
       role: temp.role,
-      facebookLink: temp.facebookLink,
+      address: temp.address,
     });
 
     //Delete Temp User and verifying flag
@@ -282,6 +268,8 @@ export const verifyReceive = async (req, res) => {
   }
 };
 
+
+// TODO: Add SMS Verification for SMS Based Signups
 export const verifySend = async (req, res) => {
   try {
     const { userEmail } = req.body;

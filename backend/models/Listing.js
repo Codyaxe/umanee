@@ -1,6 +1,6 @@
 import mongoose  from "mongoose";
 
-const p_sSchema = new mongoose.Schema({
+const listingSchema = new mongoose.Schema({
     farmerId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'user',
@@ -38,6 +38,6 @@ const p_sSchema = new mongoose.Schema({
 
 },{timestamps: true});
 
-const P_S = mongoose.model('listing', p_sSchema);
+const Listing = mongoose.model('listing', listingSchema);
 
-export default P_S;
+export default Listing;

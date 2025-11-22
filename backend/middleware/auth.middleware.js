@@ -32,15 +32,15 @@ export const protectRoute = async (req, res, next) => {
   }
 };
 
-export const sellerRoute = async (req, res, next) => {
+export const farmerRoute = async (req, res, next) => {
   try {
-    // console.log("Seller route accessed by user:", req.user?.colonyName);
-    if (req.user.role !== "seller") {
-      return res.status(403).json({ message: "Forbidden - Sellers Only" });
+    // console.log("Farmer route accessed by user:", req.user?.name);
+    if (req.user.role !== "farmer") {
+      return res.status(403).json({ message: "Forbidden - Farmers Only" });
     }
     next();
   } catch (error) {
-    console.error("Error in sellerRoute middleware:", error);
+    console.error("Error in farmerRoute middleware:", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
@@ -48,20 +48,26 @@ export const sellerRoute = async (req, res, next) => {
 export const buyerRoute = async (req, res, next) => {
   try {
     // console.log("Buyer route accessed by user:", req.user?.colonyName);
-    const token = req.cookies.accessToken;
-    if (!token) {
-      throw new Error("No Access Token Provided");
+    if (req.user.role !== "buyer") {
+      return res.status(403).json({ message: "Forbidden - Buyers Only" });
     }
-    const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
-    const user = await User.findById(decoded.userId).select("-password");
-    if (!user) {
-      throw new Error("User not found");
-    }
-    req.user = user; // Attach user to request object for further use
     next();
   } catch (error) {
     console.error("Error in protectRoute middleware:", error);
     req.user = null;
     next();
+  }
+};
+
+export const adminRoute = async (req, res, next) => {
+  try {
+    // console.log("Admin route accessed by user:", req.user?.name);
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ message: "Forbidden - Admins Only" });
+    }
+    next();
+  } catch (error) {
+    console.error("Error in adminRoute middleware:", error);
+    res.status(500).json({ message: "Internal Server Error" });
   }
 };
