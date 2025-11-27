@@ -6,6 +6,7 @@ const HomePage = () => {
 
 	useEffect(() => {
 		// For testing: Connect to Railway backend from localhost frontend
+		// const socketUrl = "https://mvem.onrender.com";
 		const socketUrl = "https://multivarsensor-production.up.railway.app";
 			
 		console.log("🔌 Connecting to socket:", socketUrl);
