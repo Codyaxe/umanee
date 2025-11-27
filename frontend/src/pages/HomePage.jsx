@@ -5,11 +5,29 @@ const HomePage = () => {
 	const [liveData, setLiveData] = useState(null);
 
 	useEffect(() => {
-		// Replace with your deployed Railway backend URL
-		const socket = io("https://your-app.up.railway.app");
+		// For testing: Connect to Railway backend from localhost frontend
+		const socketUrl = "https://multivarsensor-production.up.railway.app";
+			
+		console.log("🔌 Connecting to socket:", socketUrl);
+		const socket = io(socketUrl);
+		
+		socket.on("connect", () => {
+			console.log("✅ Socket connected:", socket.id);
+		});
+		
 		socket.on("newData", (data) => {
+			console.log("📡 Received live data:", data);
 			setLiveData(data);
 		});
+		
+		socket.on("disconnect", () => {
+			console.log("❌ Socket disconnected");
+		});
+		
+		socket.on("connect_error", (error) => {
+			console.error("🚫 Socket connection error:", error);
+		});
+		
 		return () => socket.disconnect();
 	}, []);
 
