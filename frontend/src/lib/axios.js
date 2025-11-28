@@ -1,8 +1,9 @@
 import axios from "axios";
 
 // For testing: Connect directly to Railway backend
-const baseURL = "https://mvem.onrender.com/api";
-// const baseURL = "https://multivarsensor-production.up.railway.app/api";
+const baseURL =
+  (import.meta.env.BACKEND_PRODUCTION_URL ||
+    import.meta.env.BACKEND_DEVELOPMENT_URL) + "/api";
 
 const axiosInstance = axios.create({
   baseURL,
@@ -10,7 +11,7 @@ const axiosInstance = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
-  withCredentials: true, // Enable credentials for CORS
+  withCredentials: true,
 });
 
 // Add request interceptor for debugging

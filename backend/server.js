@@ -11,26 +11,34 @@ dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: "*" } });
+// const io = new Server(server, { cors: { origin: "*" } });
+const io = new Server(server, {
+  cors: {
+    origin: [
+      process.env.FRONTEND_DEVELOPMENT_URL,
+      // process.env.FRONTEND_PRODUCTION_URL,
+    ].filter(Boolean),
+    credentials: true
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 
-
-// CORS setup: allow localhost (frontend) and Railway (backend)
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    
+    // Allow requests with no origin
+
+    if (!origin) {
+      console.log("⚠️ No origin in request, allowing by default");
+      return callback(null, true);
+    }
     const allowedOrigins = [
-      "http://localhost:5173", // Vite default
-      "http://localhost:3000",
-      "http://127.0.0.1:5173",
-      "http://127.0.0.1:3000",
-      // "https://multivarsensor-production.up.railway.app",
-      "https://mvem.onrender.com" 
-    ];
-    
+      process.env.BACKEND_DEVELOPMENT_URL,
+      process.env.BACKEND_PRODUCTION_URL,
+    ].filter(Boolean);
+    console.log(`🔍 Checking origin: ${origin} against allowed: ${allowedOrigins.join(', ')}`);
     if (allowedOrigins.includes(origin)) {
+      console.log(`✅ CORS allowed origin: ${origin}`);
       callback(null, true);
     } else {
       console.log(`🚫 CORS blocked origin: ${origin}`);
@@ -46,22 +54,12 @@ app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-app.use((req, res, next) => {
+app.use((req, next) => {
   console.log(`🚀 ${req.method} ${req.url} - Origin: ${req.headers.origin}`);
-  
-  // Add CORS headers manually for preflight requests
-  if (req.method === 'OPTIONS') {
-    res.header('Access-Control-Allow-Origin', req.headers.origin);
-    res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-    res.header('Access-Control-Allow-Credentials', 'true');
-    return res.status(200).end();
-  }
-  
   next();
 });
 
-// Make io accessible in routes/controllers
+
 app.set("io", io);
 
 app.use("/api/", readingRoute);
